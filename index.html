@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medicine Reminder PWA</title>
+
+<!-- All CSS inlined -->
+<style>
+body{background:linear-gradient(135deg,#f06,#ffccff);color:#fff;font-family:Arial;padding:20px}
+.container{max-width:800px;margin:auto;background:rgba(0,0,0,.6);padding:30px;border-radius:10px}
+h1{text-align:center}
+button{background:#4caf50;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer}
+button.add{background:#ff5722}
+.medicine-item{background:rgba(255,255,255,.1);margin:15px 0;padding:15px;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Medicine Reminder PWA</h1>
+
+  <button class="add" onclick="showForm()">Add Reminder</button>
+  <button onclick="testPush()">🔔 Test Push</button>
+
+  <div id="list"></div>
+
+  <div id="formBox" style="display:none;">
+    <form id="form">
+      <label>Name <input id="name" required></label><br><br>
+      <label>Time <input type="time" id="time" required></label><br><br>
+      <label>Date <input type="date" id="date" required></label><br><br>
+      <button type="submit">Save</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// -------- Register service worker --------
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js')
+    .then(() => console.log('Service Worker registered'));
+}
+
+// -------- Permission --------
+async function ensurePerm() {
+  if (Notification.permission !== 'granted') {
+    await Notification.requestPermission();
+  }
+}
+ensurePerm();
+
+// -------- Reminder Logic --------
+function showForm(){
+  document.getElementById('formBox').style.display='block';
+}
+function getMeds(){ return JSON.parse(localStorage.getItem('meds')||'[]'); }
+function saveMeds(m){ localStorage.setItem('meds', JSON.stringify(m)); }
+
+function render(){
+  const div = document.getElementById('list'); div.innerHTML='';
+  getMeds().forEach((m,i)=>{
+    const d=document.createElement('div');
+    d.className='medicine-item';
+    d.innerHTML=`<h3>${m.name}</h3><p>${m.date} @ ${m.time}</p>
+      <button onclick="schedule(${i})">Set Local Reminder</button>
+      <button onclick="del(${i})">Delete</button>`;
+    div.appendChild(d);
+  });
+}
+
+document.getElementById('form').onsubmit=e=>{
+  e.preventDefault();
+  const med={name:name.value,time:time.value,date:date.value};
+  const meds=getMeds(); meds.push(med); saveMeds(meds);
+  document.getElementById('formBox').style.display='none';
+  render();
+};
+
+function del(i){const m=getMeds();m.splice(i,1);saveMeds(m);render();}
+
+function schedule(i){
+  const m=getMeds()[i];
+  const when = new Date(`${m.date}T${m.time}:00`).getTime();
+  const diff = when - Date.now();
+  if(diff<=0) return alert('Time passed.');
+  alert('Reminder will work only while the browser or service worker is active.');
+  setTimeout(()=>{
+    navigator.serviceWorker.ready.then(reg=>{
+      reg.showNotification(`Time for ${m.name}`, {
+        body:`Scheduled at ${m.time}`,
+        icon:'icon-192.png'
+      });
+    });
+  }, diff);
+}
+
+function testPush(){
+  navigator.serviceWorker.ready.then(reg=>{
+    reg.showNotification('Test Notification',
+      {body:'This is a test!',icon:'icon-192.png'});
+  });
+}
+
+render();
+</script>
+</body>
+</html>
