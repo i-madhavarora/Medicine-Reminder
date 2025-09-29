@@ -3,145 +3,200 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Medicine Reminder</title>
+<title>Medicine Reminder App</title>
+<link rel="icon" href="icon-192.png">
 <style>
-body {font-family: Arial, sans-serif; max-width: 420px; margin: 2rem auto; padding: 1rem;}
-h1 {text-align: center;}
-label {display:block; margin-top:1rem; font-weight:bold;}
-input, select, button {width:100%; padding:.6rem; margin-top:.3rem; box-sizing:border-box;}
-button {background:#4CAF50; color:white; border:none; cursor:pointer; margin-top:1.5rem;}
-button:hover {background:#45a049;}
-.medicine-item {margin-top:1rem; padding:0.5rem; border:1px solid #ccc; border-radius:5px;}
+* {margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif;}
+body {background:linear-gradient(135deg,#f06,#ffccff);color:#fff;min-height:100vh;padding:20px;}
+.container {max-width:800px;margin:0 auto;background:rgba(0,0,0,0.6);padding:30px;border-radius:15px;box-shadow:0 4px 10px rgba(0,0,0,0.3);}
+h1 {text-align:center;font-size:36px;color:#ffd700;margin-bottom:20px;text-shadow:2px 2px #000;}
+.header {display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.header h2 {font-size:28px;color:#ffeb3b;}
+.add-medicine-btn {background-color:#ff5722;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:16px;}
+.add-medicine-btn:hover {background-color:#ff4e16;}
+.form-group {margin-bottom:20px;}
+input, select {width:100%;padding:10px;margin-top:5px;border-radius:5px;border:1px solid #ddd;font-size:16px;}
+button {background-color:#4caf50;color:white;padding:10px 20px;border:none;border-radius:5px;font-size:16px;cursor:pointer;width:100%;}
+button:hover {background-color:#45a049;}
+.medicine-item {background-color:rgba(255,255,255,0.1);margin-bottom:15px;padding:15px;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.3);display:flex;justify-content:space-between;align-items:center;}
+.medicine-details {flex:1;}
+.medicine-details h4 {font-size:20px;color:#ffd700;margin-bottom:5px;display:flex;align-items:center;}
+.medicine-details h4 img {width:40px;height:40px;margin-right:10px;}
+.medicine-details p {font-size:16px;margin:3px 0;}
+.medicine-actions button {margin-left:10px;width:auto;padding:5px 10px;font-size:14px;}
+.medicine-actions button.edit {background:#2196F3;}
+.medicine-actions button.edit:hover {background:#1976D2;}
+.medicine-actions button.delete {background:#f44336;}
+.medicine-actions button.delete:hover {background:#d32f2f;}
+@media (max-width:600px) {.container {padding:20px;} .header h2 {font-size:24px;} input, select, button {font-size:14px;}}
 </style>
 </head>
 <body>
-<h1>Medicine Reminder</h1>
+<div class="container">
+<h1>Medicine Reminder App</h1>
 
-<form id="reminderForm">
-  <label>Medicine Name
-    <input id="medName" required>
-  </label>
+<!-- Header -->
+<div class="header">
+<h2 id="screen-title">All Medicines</h2>
+<button class="add-medicine-btn" onclick="showAddMedicineForm()">Add Medicine</button>
+</div>
 
-  <label>Type of Medicine
-    <select id="medType" required>
-      <option value="">--Select--</option>
-      <option>Tablet</option>
-      <option>Syrup</option>
-      <option>Injection</option>
-      <option>Other</option>
-    </select>
-  </label>
+<!-- All Medicines -->
+<div id="medicine-list-screen">
+<div id="reminder-list"></div>
+</div>
 
-  <label>Date
-    <input type="date" id="date" required>
-  </label>
-
-  <label>Time
-    <input type="time" id="time" required>
-  </label>
-
-  <label>Repeat
-    <select id="repeat" required>
-      <option value="">--Select--</option>
-      <option value="none">No Repeat</option>
-      <option value="day">Every Day</option>
-      <option value="12h">Every 12 Hours</option>
-      <option value="6h">Every 6 Hours</option>
-    </select>
-  </label>
-
-  <button type="submit">Add Reminder</button>
+<!-- Add/Edit Medicine Form -->
+<div id="medicine-form-screen" style="display:none;">
+<form id="medicine-form">
+<div class="form-group">
+<label>Medicine Name</label>
+<input type="text" id="medicine-name" required>
+</div>
+<div class="form-group">
+<label>Medicine Type</label>
+<select id="medicine-type" required>
+<option value="Tablet">Tablet</option>
+<option value="Syrup">Syrup</option>
+<option value="Drop">Drop</option>
+<option value="Injection">Injection</option>
+<option value="Other">Other</option>
+</select>
+</div>
+<div class="form-group">
+<label>Date</label>
+<input type="date" id="medicine-date" required>
+</div>
+<div class="form-group">
+<label>Time</label>
+<input type="time" id="medicine-time" required>
+</div>
+<div class="form-group">
+<label>Repeat</label>
+<select id="repeat" required>
+<option value="none">No Repeat</option>
+<option value="day">Every Day</option>
+<option value="12h">Every 12 Hours</option>
+<option value="6h">Every 6 Hours</option>
+</select>
+</div>
+<button type="submit" id="form-submit-btn">Save Medicine</button>
 </form>
+</div>
 
-<h2>Scheduled Medicines:</h2>
-<div id="medicineList"></div>
+<audio id="reminder-sound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
+</div>
 
 <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js');
-}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('service-worker.js');}
 
-// Request permission once
-async function ensureNotificationPermission() {
-  if (Notification.permission !== 'granted') {
-    await Notification.requestPermission();
-  }
-}
-ensureNotificationPermission();
-
-// Store and render medicines
-function getMeds() { return JSON.parse(localStorage.getItem('meds')||'[]'); }
-function saveMeds(meds) { localStorage.setItem('meds', JSON.stringify(meds)); }
-function renderMeds() {
-  const container = document.getElementById('medicineList');
-  container.innerHTML='';
-  getMeds().forEach(m => {
-    const div = document.createElement('div');
+// Helpers
+function getMeds(){return JSON.parse(localStorage.getItem('medicines')||'[]');}
+function saveMeds(meds){localStorage.setItem('medicines',JSON.stringify(meds));}
+function renderMeds(){
+  const list=document.getElementById('reminder-list');
+  list.innerHTML='';
+  getMeds().forEach((med,index)=>{
+    const div=document.createElement('div');
     div.className='medicine-item';
-    div.innerHTML = `<b>${m.name}</b> (${m.type})<br>${m.date} @ ${m.time} | Repeat: ${m.repeat}`;
-    container.appendChild(div);
+    div.innerHTML=`
+      <div class="medicine-details">
+        <h4><img src="icon-192.png" alt="icon">${med.name} (${med.type})</h4>
+        <p><i>Date:</i> ${med.date}</p>
+        <p><i>Time:</i> ${med.time}</p>
+        <p><i>Repeat:</i> ${med.repeat}</p>
+      </div>
+      <div class="medicine-actions">
+        <button class="edit" onclick="editMedicine(${index})">Edit</button>
+        <button class="delete" onclick="deleteMedicine(${index})">Delete</button>
+      </div>
+    `;
+    list.appendChild(div);
   });
 }
 
-// Schedule notifications automatically
-function scheduleNotification(med) {
-  const scheduleTime = new Date(`${med.date}T${med.time}:00`);
-  const delay = scheduleTime - Date.now();
-  if(delay<=0) return; // Skip past times
-
-  setTimeout(() => {
-    showNotification(med.name, med.type);
-    if(med.repeat !== 'none') scheduleRepeats(med);
-  }, delay);
+// Screen Switch
+function showAddMedicineForm(){
+  document.getElementById('medicine-form-screen').style.display='block';
+  document.getElementById('medicine-list-screen').style.display='none';
+  document.getElementById('screen-title').innerText='Add Medicine';
+  document.getElementById('form-submit-btn').innerText='Add Medicine';
+  document.getElementById('medicine-form').dataset.editIndex='';
+}
+function showMedicineList(){
+  document.getElementById('medicine-form-screen').style.display='none';
+  document.getElementById('medicine-list-screen').style.display='block';
+  document.getElementById('screen-title').innerText='All Medicines';
 }
 
-function showNotification(name, type) {
+// Notifications
+function scheduleReminder(med){
+  const time=new Date(`${med.date}T${med.time}:00`);
+  const diff=time-Date.now();
+  if(diff<=0) return;
+  setTimeout(()=>{
+    showNotification(med.name,med.type);
+    if(med.repeat!=='none') scheduleRepeats(med);
+  },diff);
+}
+function showNotification(name,type){
   if(Notification.permission==='granted'){
-    new Notification('Medicine Reminder', {
-      body: `Time to take ${name} (${type})`,
-      icon: 'https://cdn-icons-png.flaticon.com/512/2966/2966484.png'
-    });
-    new Audio('https://www.soundjay.com/button/beep-07.wav').play();
+    new Notification('Medicine Reminder',{body:`Time to take ${name} (${type})`,icon:'icon-192.png'});
+    document.getElementById('reminder-sound').play();
   }
 }
-
-function scheduleRepeats(med) {
+function scheduleRepeats(med){
   let interval;
-  if(med.repeat==='day') interval = 24*60*60*1000;
-  if(med.repeat==='12h') interval = 12*60*60*1000;
-  if(med.repeat==='6h') interval = 6*60*60*1000;
-
-  setInterval(() => showNotification(med.name, med.type), interval);
+  if(med.repeat==='day') interval=24*60*60*1000;
+  if(med.repeat==='12h') interval=12*60*60*1000;
+  if(med.repeat==='6h') interval=6*60*60*1000;
+  setInterval(()=>showNotification(med.name,med.type),interval);
 }
 
-// Load existing medicines and schedule
-getMeds().forEach(scheduleNotification);
+// Load existing meds
+getMeds().forEach(scheduleReminder);
 renderMeds();
 
-// Form submission
-document.getElementById('reminderForm').addEventListener('submit', e=>{
+// Form Submission
+document.getElementById('medicine-form').addEventListener('submit',function(e){
   e.preventDefault();
-  const med = {
-    name: document.getElementById('medName').value.trim(),
-    type: document.getElementById('medType').value,
-    date: document.getElementById('date').value,
-    time: document.getElementById('time').value,
-    repeat: document.getElementById('repeat').value
-  };
-  if(!med.name || !med.type || !med.date || !med.time || !med.repeat){
-    alert('Please fill all fields');
-    return;
-  }
+  if(Notification.permission!=='granted') Notification.requestPermission();
+  const name=document.getElementById('medicine-name').value.trim();
+  const type=document.getElementById('medicine-type').value;
+  const date=document.getElementById('medicine-date').value;
+  const time=document.getElementById('medicine-time').value;
+  const repeat=document.getElementById('repeat').value;
+  if(!name||!type||!date||!time||!repeat){alert('Fill all fields');return;}
+  const meds=getMeds();
+  const editIndex=this.dataset.editIndex;
+  const med={name,type,date,time,repeat};
+  if(editIndex!==''){meds[editIndex]=med;}
+  else meds.push(med);
+  saveMeds(meds);
+  scheduleReminder(med);
+  renderMeds();
+  showMedicineList();
+  this.reset();
+});
 
-  const meds = getMeds();
-  meds.push(med);
+// Edit/Delete
+function editMedicine(index){
+  const med=getMeds()[index];
+  showAddMedicineForm();
+  document.getElementById('medicine-name').value=med.name;
+  document.getElementById('medicine-type').value=med.type;
+  document.getElementById('medicine-date').value=med.date;
+  document.getElementById('medicine-time').value=med.time;
+  document.getElementById('repeat').value=med.repeat;
+  document.getElementById('medicine-form').dataset.editIndex=index;
+  document.getElementById('form-submit-btn').innerText='Save Changes';
+}
+function deleteMedicine(index){
+  const meds=getMeds();
+  meds.splice(index,1);
   saveMeds(meds);
   renderMeds();
-  scheduleNotification(med);
-
-  // reset form
-  document.getElementById('reminderForm').reset();
-});
+}
 </script>
 </body>
 </html>
