@@ -3,105 +3,145 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Medicine Reminder PWA</title>
-
-<!-- All CSS inlined -->
+<title>Medicine Reminder</title>
 <style>
-body{background:linear-gradient(135deg,#f06,#ffccff);color:#fff;font-family:Arial;padding:20px}
-.container{max-width:800px;margin:auto;background:rgba(0,0,0,.6);padding:30px;border-radius:10px}
-h1{text-align:center}
-button{background:#4caf50;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer}
-button.add{background:#ff5722}
-.medicine-item{background:rgba(255,255,255,.1);margin:15px 0;padding:15px;border-radius:8px}
+body {font-family: Arial, sans-serif; max-width: 420px; margin: 2rem auto; padding: 1rem;}
+h1 {text-align: center;}
+label {display:block; margin-top:1rem; font-weight:bold;}
+input, select, button {width:100%; padding:.6rem; margin-top:.3rem; box-sizing:border-box;}
+button {background:#4CAF50; color:white; border:none; cursor:pointer; margin-top:1.5rem;}
+button:hover {background:#45a049;}
+.medicine-item {margin-top:1rem; padding:0.5rem; border:1px solid #ccc; border-radius:5px;}
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>Medicine Reminder PWA</h1>
+<h1>Medicine Reminder</h1>
 
-  <button class="add" onclick="showForm()">Add Reminder</button>
-  <button onclick="testPush()">🔔 Test Push</button>
+<form id="reminderForm">
+  <label>Medicine Name
+    <input id="medName" required>
+  </label>
 
-  <div id="list"></div>
+  <label>Type of Medicine
+    <select id="medType" required>
+      <option value="">--Select--</option>
+      <option>Tablet</option>
+      <option>Syrup</option>
+      <option>Injection</option>
+      <option>Other</option>
+    </select>
+  </label>
 
-  <div id="formBox" style="display:none;">
-    <form id="form">
-      <label>Name <input id="name" required></label><br><br>
-      <label>Time <input type="time" id="time" required></label><br><br>
-      <label>Date <input type="date" id="date" required></label><br><br>
-      <button type="submit">Save</button>
-    </form>
-  </div>
-</div>
+  <label>Date
+    <input type="date" id="date" required>
+  </label>
+
+  <label>Time
+    <input type="time" id="time" required>
+  </label>
+
+  <label>Repeat
+    <select id="repeat" required>
+      <option value="">--Select--</option>
+      <option value="none">No Repeat</option>
+      <option value="day">Every Day</option>
+      <option value="12h">Every 12 Hours</option>
+      <option value="6h">Every 6 Hours</option>
+    </select>
+  </label>
+
+  <button type="submit">Add Reminder</button>
+</form>
+
+<h2>Scheduled Medicines:</h2>
+<div id="medicineList"></div>
 
 <script>
-// -------- Register service worker --------
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js')
-    .then(() => console.log('Service Worker registered'));
+  navigator.serviceWorker.register('service-worker.js');
 }
 
-// -------- Permission --------
-async function ensurePerm() {
+// Request permission once
+async function ensureNotificationPermission() {
   if (Notification.permission !== 'granted') {
     await Notification.requestPermission();
   }
 }
-ensurePerm();
+ensureNotificationPermission();
 
-// -------- Reminder Logic --------
-function showForm(){
-  document.getElementById('formBox').style.display='block';
-}
-function getMeds(){ return JSON.parse(localStorage.getItem('meds')||'[]'); }
-function saveMeds(m){ localStorage.setItem('meds', JSON.stringify(m)); }
-
-function render(){
-  const div = document.getElementById('list'); div.innerHTML='';
-  getMeds().forEach((m,i)=>{
-    const d=document.createElement('div');
-    d.className='medicine-item';
-    d.innerHTML=`<h3>${m.name}</h3><p>${m.date} @ ${m.time}</p>
-      <button onclick="schedule(${i})">Set Local Reminder</button>
-      <button onclick="del(${i})">Delete</button>`;
-    div.appendChild(d);
+// Store and render medicines
+function getMeds() { return JSON.parse(localStorage.getItem('meds')||'[]'); }
+function saveMeds(meds) { localStorage.setItem('meds', JSON.stringify(meds)); }
+function renderMeds() {
+  const container = document.getElementById('medicineList');
+  container.innerHTML='';
+  getMeds().forEach(m => {
+    const div = document.createElement('div');
+    div.className='medicine-item';
+    div.innerHTML = `<b>${m.name}</b> (${m.type})<br>${m.date} @ ${m.time} | Repeat: ${m.repeat}`;
+    container.appendChild(div);
   });
 }
 
-document.getElementById('form').onsubmit=e=>{
-  e.preventDefault();
-  const med={name:name.value,time:time.value,date:date.value};
-  const meds=getMeds(); meds.push(med); saveMeds(meds);
-  document.getElementById('formBox').style.display='none';
-  render();
-};
+// Schedule notifications automatically
+function scheduleNotification(med) {
+  const scheduleTime = new Date(`${med.date}T${med.time}:00`);
+  const delay = scheduleTime - Date.now();
+  if(delay<=0) return; // Skip past times
 
-function del(i){const m=getMeds();m.splice(i,1);saveMeds(m);render();}
+  setTimeout(() => {
+    showNotification(med.name, med.type);
+    if(med.repeat !== 'none') scheduleRepeats(med);
+  }, delay);
+}
 
-function schedule(i){
-  const m=getMeds()[i];
-  const when = new Date(`${m.date}T${m.time}:00`).getTime();
-  const diff = when - Date.now();
-  if(diff<=0) return alert('Time passed.');
-  alert('Reminder will work only while the browser or service worker is active.');
-  setTimeout(()=>{
-    navigator.serviceWorker.ready.then(reg=>{
-      reg.showNotification(`Time for ${m.name}`, {
-        body:`Scheduled at ${m.time}`,
-        icon:'icon-192.png'
-      });
+function showNotification(name, type) {
+  if(Notification.permission==='granted'){
+    new Notification('Medicine Reminder', {
+      body: `Time to take ${name} (${type})`,
+      icon: 'https://cdn-icons-png.flaticon.com/512/2966/2966484.png'
     });
-  }, diff);
+    new Audio('https://www.soundjay.com/button/beep-07.wav').play();
+  }
 }
 
-function testPush(){
-  navigator.serviceWorker.ready.then(reg=>{
-    reg.showNotification('Test Notification',
-      {body:'This is a test!',icon:'icon-192.png'});
-  });
+function scheduleRepeats(med) {
+  let interval;
+  if(med.repeat==='day') interval = 24*60*60*1000;
+  if(med.repeat==='12h') interval = 12*60*60*1000;
+  if(med.repeat==='6h') interval = 6*60*60*1000;
+
+  setInterval(() => showNotification(med.name, med.type), interval);
 }
 
-render();
+// Load existing medicines and schedule
+getMeds().forEach(scheduleNotification);
+renderMeds();
+
+// Form submission
+document.getElementById('reminderForm').addEventListener('submit', e=>{
+  e.preventDefault();
+  const med = {
+    name: document.getElementById('medName').value.trim(),
+    type: document.getElementById('medType').value,
+    date: document.getElementById('date').value,
+    time: document.getElementById('time').value,
+    repeat: document.getElementById('repeat').value
+  };
+  if(!med.name || !med.type || !med.date || !med.time || !med.repeat){
+    alert('Please fill all fields');
+    return;
+  }
+
+  const meds = getMeds();
+  meds.push(med);
+  saveMeds(meds);
+  renderMeds();
+  scheduleNotification(med);
+
+  // reset form
+  document.getElementById('reminderForm').reset();
+});
 </script>
 </body>
 </html>
